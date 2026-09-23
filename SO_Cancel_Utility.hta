@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>SM300 SO Cancellation Utility</title>
+<hta:application id="app" applicationname="SM300SOCancel" border="thick" borderstyle="normal"
+  caption="yes" maximizebutton="yes" minimizebutton="yes" showintaskbar="yes"
+  singleinstance="yes" sysmenu="yes" windowstate="normal" scroll="auto" selection="yes" contextmenu="yes">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #eef1f5; color: #1b2430;
+    font-family: "Segoe UI", Arial, sans-serif; font-size: 14px; line-height: 1.45; }
+  #header { background: #0b4f8a; color: #fff; padding: 12px 22px; }
+  #header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  #header p { margin: 2px 0 0; font-size: 12.5px; color: #d6e4f2; }
+  #main { max-width: 640px; margin: 18px auto; padding: 0 16px; }
+  .steps { display: flex; margin-bottom: 14px; }
+  .steps div { flex: 1 1 0; margin-right: 8px; padding: 7px 8px; background: #dfe5ec; color: #5d6b7c;
+    font-size: 12.5px; font-weight: 600; text-align: center; border-radius: 5px; }
+  .steps div.last { margin-right: 0; }
+  .steps div.active { background: #0b4f8a; color: #fff; }
+  .steps div.done { background: #c9dcef; color: #0b4f8a; }
+  .card { background: #fff; border: 1px solid #d7dde5; border-radius: 7px; padding: 20px 22px; }
+  .card h2 { margin: 0 0 4px; font-size: 16px; }
+  .sub { margin: 0 0 14px; color: #5d6b7c; font-size: 13px; }
+  label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
+  input.t { width: 100%; padding: 7px 9px; font-size: 14px; border: 1px solid #c9d1dc; border-radius: 5px;
+    background: #f8fafc; color: #1b2430; font-family: "Segoe UI", Arial, sans-serif; }
+  input.t:focus { border-color: #0b4f8a; background: #fff; outline: none; }
+  .row { display: flex; } .row .col { flex: 1 1 0; margin-right: 12px; } .row .col.last { margin-right: 0; }
+  .row .col.small { flex: 0 0 110px; }
+  .actions { text-align: right; margin-top: 18px; }
+  button { font-family: "Segoe UI", Arial, sans-serif; }
+  .btn { padding: 7px 16px; font-size: 14px; font-weight: 600; border-radius: 5px; cursor: pointer;
+    border: 1px solid #0b4f8a; background: #0b4f8a; color: #fff; margin-left: 8px; }
+  .btn.secondary { background: #fff; color: #0b4f8a; }
+  .btn.danger { background: #b3261e; border-color: #b3261e; }
+  .btn[disabled] { background: #9aa6b4; border-color: #9aa6b4; color: #fff; cursor: default; }
+  .link { background: none; border: 0; color: #0b4f8a; font-weight: 600; cursor: pointer; padding: 0 4px; font-size: 13px; }
+  .msg { margin-top: 14px; padding: 9px 11px; border-radius: 5px; font-size: 13.5px; display: none; white-space: pre-wrap; }
+  .msg.show { display: block; }
+  .msg.ok { background: #e7f5ec; color: #1d7a46; }
+  .msg.warn { background: #fff4e0; color: #8a5200; }
+  .msg.bad { background: #fdecea; color: #b3261e; }
+  .msg.info { background: #e8f0f8; color: #0b4f8a; }
+  .hint { font-size: 12px; color: #5d6b7c; margin-top: 4px; }
+  .hint.bad { color: #b3261e; } .hint.ok { color: #1d7a46; }
+  .conn { font-size: 12.5px; color: #5d6b7c; margin-bottom: 12px; }
+  .conn b { color: #1b2430; }
+  table.kv { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.kv td { padding: 6px 4px; border-bottom: 1px solid #e3e8ee; vertical-align: top; }
+  table.kv td.k { color: #5d6b7c; width: 45%; }
+  .pill { display: inline-block; padding: 0 8px; border-radius: 9px; font-size: 12px; font-weight: 600; }
+  .pill.ok { background: #e7f5ec; color: #1d7a46; } .pill.bad { background: #fdecea; color: #b3261e; }
+  .confirm { margin-top: 16px; padding: 12px 14px; border: 1px solid #f0c2bd; background: #fff8f7; border-radius: 5px; }
+  .confirm p { margin: 0; font-size: 13px; }
+  .big { font-size: 18px; font-weight: 700; margin: 2px 0 10px; }
+  .raw { font-family: Consolas, monospace; font-size: 12px; color: #5d6b7c; word-wrap: break-word; margin-top: 10px; }
+  .hidden { display: none; }
+  #footer { text-align: center; color: #5d6b7c; font-size: 11.5px; margin: 14px 0 20px; }
+  #busy { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(238,241,245,0.75); }
+  #busy div { position: absolute; left: 50%; top: 40%; width: 260px; margin-left: -130px; background: #0b4f8a;
+    color: #fff; padding: 14px; text-align: center; border-radius: 6px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>Verishield SM300 &middot; Shipping Order Cancellation</h1>
+  <p>Runs curecloud.sp_cancelShippingOrder_custom on the selected MySQL server</p>
+</div>
+
+<div id="main">
+  <div class="steps">
+    <div id="st1" class="active">1. Connect</div>
+    <div id="st2">2. Order details</div>
+    <div id="st3" class="last">3. Confirm &amp; cancel</div>
+  </div>
+
+  <!-- STEP 1: CONNECT -->
+  <div class="card" id="pConnect">
+    <h2>Connect to MySQL</h2>
+    <p class="sub">Enter the SM300 database server and the MySQL root password. The password is kept only while this window is open.</p>
+    <div class="row">
+      <div class="col"><label for="host">MySQL hostname or IP</label>
+        <input class="t" id="host" placeholder="e.g. 192.168.10.20 or SM300-DB"></div>
+      <div class="col small last"><label for="port">Port</label>
+        <input class="t" id="port" value="3306"></div>
+    </div>
+    <label for="pwd">Password for user root</label>
+    <input class="t" id="pwd" type="password">
+    <label for="mysqlPath">MySQL client (mysql.exe)</label>
+    <input class="t" id="mysqlPath">
+    <div class="hint" id="mysqlHint"></div>
+    <div class="actions">
+      <button class="btn secondary" id="bFind" type="button">Find again</button>
+      <button class="btn" id="bConnect" type="button">Connect</button>
+    </div>
+    <div class="msg" id="mConnect"></div>
+  </div>
+
+  <!-- STEP 2: ORDER DETAILS -->
+  <div class="card hidden" id="pOrder">
+    <div class="conn">Connected to <b id="cHost"></b> <span id="cVer"></span> <button class="link" id="bChange" type="button">Change</button></div>
+    <h2>Shipping order to cancel</h2>
+    <p class="sub">The order is checked first. Nothing is changed until you confirm on the next step.</p>
+    <div class="row">
+      <div class="col"><label for="soId">Shipping Order ID</label><input class="t" id="soId"></div>
+      <div class="col last"><label for="userId">User ID</label><input class="t" id="userId"></div>
+    </div>
+    <div class="actions"><button class="btn" id="bCheck" type="button">Check order</button></div>
+    <div class="msg" id="mOrder"></div>
+  </div>
+
+  <!-- STEP 3: REVIEW -->
+  <div class="card hidden" id="pReview">
+    <h2>Review before cancelling</h2>
+    <p class="sub">Check these details against the SM300 screen.</p>
+    <table class="kv" id="tReview"></table>
+    <div class="msg" id="mReview"></div>
+    <div class="confirm" id="confirmBox">
+      <p><b>This cancels the shipping order and releases its codes. It cannot be undone from this utility.</b></p>
+      <label for="confirmSo">Type the Shipping Order ID again to confirm</label>
+      <input class="t" id="confirmSo">
+    </div>
+    <div class="actions">
+      <button class="btn secondary" id="bBack" type="button">Back</button>
+      <button class="btn danger" id="bCancel" type="button" disabled="disabled">Cancel shipping order</button>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="card hidden" id="pResult">
+    <h2>Result</h2>
+    <div class="big" id="rTitle"></div>
+    <table class="kv" id="tResult"></table>
+    <div class="raw" id="rRaw"></div>
+    <div class="actions">
+      <button class="btn secondary" id="bNewConn" type="button">Different server</button>
+      <button class="btn" id="bAnother" type="button">Cancel another order</button>
+    </div>
+  </div>
+
+  <div id="footer">Every cancellation attempt is recorded in SO_Cancel_Log.csv next to this file.</div>
+</div>
+<div id="busy"><div id="busyText">Working...</div></div>
+
+<script type="text/javascript">
+/* ============================================================================
+   Verishield SM300 - Shipping Order Cancellation Utility (HTA, no Python)
+   Talks to MySQL through the mysql.exe command-line client that ships with
+   MySQL Server. The root password goes into a temporary option file that is
+   deleted right after each call; it never appears on a command line.
+   ES5 only: HTA runs on the Windows Internet Explorer engine.
+   ========================================================================== */
+var DB_NAME = "curecloud";
+var MAIN_PROC = "sp_cancelShippingOrder_custom";
+var HELPER_PROC = "update_root_cancel_so";
+var CANCELLABLE = [3, 14];
+var LOG_NAME = "SO_Cancel_Log.csv";
+var SETTINGS_NAME = "SO_Cancel_Settings.txt";
+
+var conn = { host: "", port: 3306, password: "", mysqlPath: "" };
+var current = null;
+
+function $(id) { return document.getElementById(id); }
+function trim(s) { return String(s == null ? "" : s).replace(/^\s+|\s+$/g, ""); }
+function isPosInt(v) { v = trim(v); return /^\d{1,10}$/.test(v) && Number(v) > 0; }
+function inList(v, list) { for (var i = 0; i < list.length; i++) { if (list[i] === v) return true; } return false; }
+function esc(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/* ---------------------------------------------------------------- mysql.exe command building (pure) */
+
+// Value for "password=" in a MySQL option file.
+function cnfQuote(pw) {
+  var v = String(pw).replace(/\\/g, "\\\\");
+  if (v.indexOf('"') < 0) return '"' + v + '"';
+  if (v.indexOf("'") < 0) return "'" + v + "'";
+  return null; // contains both quote types; cannot be written safely
+}
+function buildCnf(pw) {
+  return "[client]\r\nuser=root\r\npassword=" + cnfQuote(pw) + "\r\n";
+}
+function validHost(h) { return /^[A-Za-z0-9._\-]{1,253}$/.test(h) || /^\[?[0-9A-Fa-f:]+\]?$/.test(h); }
+function buildArgs(cnfPath, force) {
+  var a = ["--defaults-extra-file=" + cnfPath,   // must be first
+           "--host=" + conn.host, "--port=" + conn.port, "--protocol=TCP",
+           "--connect-timeout=8", "--default-character-set=utf8mb4",
+           "--batch", "--skip-column-names"];
+  if (force) a.push("--force");
+  a.push(DB_NAME);
+  return a;
+}
+
+// Parse "--batch --skip-column-names" output split into ##S|name sections.
+function unescapeBatch(v) {
+  return v.replace(/\\(.)/g, function (m, c) {
+    return c === "n" ? "\n" : c === "t" ? "\t" : c === "0" ? "\0" : c === "\\" ? "\\" : m;
+  });
+}
+function parseSections(out) {
+  var lines = String(out || "").replace(/\r/g, "").split("\n");
+  var sec = {}, name = null;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (line.indexOf("##S|") === 0) { name = line.substring(4); sec[name] = []; continue; }
+    if (name === null || line === "") continue;
+    var cells = line.split("\t");
+    for (var j = 0; j < cells.length; j++) cells[j] = cells[j] === "NULL" ? null : unescapeBatch(cells[j]);
+    sec[name].push(cells);
+  }
+  return sec;
+}
+function mysqlErrors(err) {
+  var lines = String(err || "").replace(/\r/g, "").split("\n"), res = [];
+  for (var i = 0; i < lines.length; i++) {
+    var l = trim(lines[i]);
+    if (!l || /\[Warning\]/.test(l)) continue;
+    var m = /^ERROR (\d+)/.exec(l);
+    res.push({ code: m ? Number(m[1]) : 0, text: l });
+  }
+  return res;
+}
+var FATAL = [1044, 1045, 1049, 1130, 2002, 2003, 2005, 2013, 2026, 2059, 2061];
+function friendlyError(e) {
+  switch (e.code) {
+    case 1045: return "Access denied for root. Check the password.";
+    case 1044: case 1130: return "The root user is not allowed to connect from this PC. (" + e.text + ")";
+    case 1049: return "The database '" + DB_NAME + "' does not exist on this server.";
+    case 2002: case 2003: return "Cannot reach MySQL at " + conn.host + ":" + conn.port + ". Check the hostname, port, firewall and that the MySQL service is running.";
+    case 2005: return "Unknown host '" + conn.host + "'. Check the hostname or use the IP address.";
+    case 2013: return "The connection to MySQL was lost. (" + e.text + ")";
+    case 2059: case 2061: return "This mysql.exe cannot log in to the server (authentication plugin mismatch). Use the mysql.exe from the same MySQL version as the server. (" + e.text + ")";
+    default: return e.text;
+  }
+}
+// Runs SQL and returns {ok, sec, errors, fatal}
+function query(sql, force) {
+  var r = Host.runMysql(sql, force);
+  if (r.launchError) return { ok: false, error: r.launchError };
+  var errors = mysqlErrors(r.err);
+  for (var i = 0; i < errors.length; i++) {
+    if (inList(errors[i].code, FATAL)) return { ok: false, error: friendlyError(errors[i]) };
+  }
+  if (!force && errors.length) return { ok: false, error: "MySQL error: " + errors[0].text };
+  if (!force && r.code !== 0) return { ok: false, error: "mysql.exe ended with exit code " + r.code + "." };
+  return { ok: true, sec: parseSections(r.out), errors: errors };
+}
+function one(sec, name, col) {
+  var rows = sec[name];
+  if (!rows || !rows.length) return undefined;
+  return rows[0][col || 0];
+}
+
+/* ---------------------------------------------------------------- Windows host layer (ActiveX) */
+var Host = (function () {
+  var fso, sh;
+  try {
+    fso = new ActiveXObject("Scripting.FileSystemObject");
+    sh = new ActiveXObject("WScript.Shell");
+  } catch (e) { fso = null; sh = null; }
+
+  function available() { return !!fso; }
+
+  function appFolder() {
+    var p = unescape(document.location.pathname || "");
+    p = p.replace(/^\/(?=[A-Za-z]:)/, "").replace(/\//g, "\\");
+    var f = fso.GetParentFolderName(p);
+    if (f && fso.FolderExists(f)) return f;
+    return sh.CurrentDirectory;
+  }
+  function tempFile(ext) {
+    var t = fso.GetSpecialFolder(2).Path;
+    return fso.BuildPath(t, "socu_" + new Date().getTime() + "_" + Math.floor(Math.random() * 1e6) + ext);
+  }
+  function writeAnsi(path, text) { var f = fso.CreateTextFile(path, true, false); f.Write(text); f.Close(); }
+  function readUtf8(path) {
+    if (!fso.FileExists(path) || fso.GetFile(path).Size === 0) return "";
+    var s = new ActiveXObject("ADODB.Stream");
+    s.Type = 2; s.Charset = "utf-8"; s.Open(); s.LoadFromFile(path);
+    var t = s.ReadText(); s.Close();
+    return t;
+  }
+  function writeUtf8(path, text) {
+    var s = new ActiveXObject("ADODB.Stream");
+    s.Type = 2; s.Charset = "utf-8"; s.Open(); s.WriteText(text);
+    s.SaveToFile(path, 2); s.Close();
+  }
+  function del(path) { try { if (fso.FileExists(path)) fso.DeleteFile(path, true); } catch (e) {} }
+
+  function runMysql(sql, force) {
+    if (!fso.FileExists(conn.mysqlPath)) return { launchError: "mysql.exe was not found at: " + conn.mysqlPath };
+    var cnf = tempFile(".cnf"), q = tempFile(".sql"), out = tempFile(".out"), err = tempFile(".err");
+    try {
+      writeAnsi(cnf, buildCnf(conn.password));
+      writeAnsi(q, sql);
+      var args = buildArgs(cnf, force), parts = [];
+      for (var i = 0; i < args.length; i++) {
+        var a = args[i], k = a.indexOf("=");
+        parts.push(k > 0 && a.indexOf("--") === 0 ? a.substring(0, k + 1) + '"' + a.substring(k + 1) + '"' : '"' + a + '"');
+      }
+      var cmd = 'cmd.exe /c ""' + conn.mysqlPath + '" ' + parts.join(" ") +
+                ' < "' + q + '" > "' + out + '" 2> "' + err + '""';
+      var code = sh.Run(cmd, 0, true);
+      return { code: code, out: readUtf8(out), err: readUtf8(err) };
+    } catch (e) {
+      return { launchError: "Could not run mysql.exe: " + (e.message || e) };
+    } finally {
+      del(cnf); del(q); del(out); del(err);
+    }
+  }
+
+  function findMysql() {
+    var found = [];
+    function add(p) { if (p && fso.FileExists(p)) { for (var i = 0; i < found.length; i++) if (found[i].toLowerCase() === p.toLowerCase()) return; found.push(p); } }
+    var app = appFolder();
+    add(fso.BuildPath(app, "mysql.exe"));
+    add(fso.BuildPath(app, "bin\\mysql.exe"));
+    var roots = ["C:\\Program Files", "C:\\Program Files (x86)",
+                 sh.ExpandEnvironmentStrings("%ProgramW6432%"), sh.ExpandEnvironmentStrings("%ProgramFiles%")];
+    for (var r = 0; r < roots.length; r++) {
+      var base = roots[r];
+      if (!base || base.indexOf("%") >= 0 || !fso.FolderExists(base)) continue;
+      var vendors = ["MySQL", "MariaDB"];
+      for (var v = 0; v < vendors.length; v++) {
+        var vendorDir = fso.BuildPath(base, vendors[v]);
+        if (fso.FolderExists(vendorDir)) {
+          var names = [], e = new Enumerator(fso.GetFolder(vendorDir).SubFolders);
+          for (; !e.atEnd(); e.moveNext()) names.push(e.item().Path);
+          names.sort(); names.reverse();                     // newest version first
+          for (var n = 0; n < names.length; n++) add(fso.BuildPath(names[n], "bin\\mysql.exe"));
+        }
+      }
+      var e2 = new Enumerator(fso.GetFolder(base).SubFolders);   // "MariaDB 10.x" style folders
+      for (; !e2.atEnd(); e2.moveNext()) {
+        if (/^MariaDB/i.test(e2.item().Name)) add(fso.BuildPath(e2.item().Path, "bin\\mysql.exe"));
+      }
+    }
+    add("C:\\xampp\\mysql\\bin\\mysql.exe");
+    add("C:\\wamp64\\bin\\mysql\\mysql.exe");
+    // Anything on PATH
+    var tmp = tempFile(".txt");
+    try { sh.Run('cmd.exe /c "where mysql.exe > "' + tmp + '" 2>nul"', 0, true);
+          var lines = readUtf8(tmp).replace(/\r/g, "").split("\n");
+          for (var l = 0; l < lines.length; l++) add(trim(lines[l]));
+    } catch (x) {} finally { del(tmp); }
+    return found;
+  }
+
+  function loadSettings() {
+    var p = fso.BuildPath(appFolder(), SETTINGS_NAME), s = {};
+    if (!fso.FileExists(p)) return s;
+    var lines = readUtf8(p).replace(/\r/g, "").split("\n");
+    for (var i = 0; i < lines.length; i++) { var k = lines[i].indexOf("="); if (k > 0) s[lines[i].substring(0, k)] = lines[i].substring(k + 1); }
+    return s;
+  }
+  function saveSettings(s) {   // never contains the password
+    try { writeUtf8(fso.BuildPath(appFolder(), SETTINGS_NAME), "host=" + s.host + "\r\nport=" + s.port + "\r\nmysqlPath=" + s.mysqlPath + "\r\n"); } catch (e) {}
+  }
+
+  function csv(v) { v = String(v == null ? "" : v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function appendLog(r) {
+    try {
+      var p = fso.BuildPath(appFolder(), LOG_NAME);
+      var text = fso.FileExists(p) ? readUtf8(p) : "Timestamp,Windows user,PC name,MySQL host,SO ID,User ID,Result,SO status after,Status message,Error message\r\n";
+      var d = new Date();
+      function z(n) { return (n < 10 ? "0" : "") + n; }
+      var ts = d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()) + " " + z(d.getHours()) + ":" + z(d.getMinutes()) + ":" + z(d.getSeconds());
+      text += [ts, sh.ExpandEnvironmentStrings("%USERNAME%"), sh.ExpandEnvironmentStrings("%COMPUTERNAME%"),
+               conn.host + ":" + conn.port, r.soId, r.userId, r.success ? "CANCELLED" : "NOT CANCELLED",
+               r.statusAfter, r.statusMessage, r.errorMessage].map(csv).join(",") + "\r\n";
+      writeUtf8(p, text);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  return { available: available, runMysql: runMysql, findMysql: findMysql,
+           loadSettings: loadSettings, saveSettings: saveSettings, appendLog: appendLog };
+})();
+
+/* ---------------------------------------------------------------- actions */
+function doConnect() {
+  var sql = "SELECT '##S|ver';\nSELECT VERSION(), @@hostname;\n" +
+            "SELECT '##S|procs';\nSELECT ROUTINE_NAME FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA='" + DB_NAME +
+            "' AND ROUTINE_TYPE='PROCEDURE' AND ROUTINE_NAME IN ('" + MAIN_PROC + "','" + HELPER_PROC + "');\n";
+  var q = query(sql, false);
+  if (!q.ok) return q;
+  var have = {}, rows = q.sec.procs || [];
+  for (var i = 0; i < rows.length; i++) have[String(rows[i][0]).toLowerCase()] = true;
+  var missing = [];
+  if (!have[MAIN_PROC.toLowerCase()]) missing.push(MAIN_PROC);
+  if (!have[HELPER_PROC.toLowerCase()]) missing.push(HELPER_PROC);
+  return { ok: true, version: one(q.sec, "ver", 0), missing: missing };
+}
+
+function doPreview(soId, userId) {
+  var so = Number(soId), u = Number(userId);
+  var sql =
+    "SELECT '##S|so';\nSELECT id, status, provider_id FROM shipping_orders WHERE id=" + so + ";\n" +
+    "SELECT '##S|stxt';\nSELECT f_getMessage(sos.message_id, " + u + ", NULL, NULL) FROM shipping_orders so JOIN shipping_order_status sos ON so.status = sos.id WHERE so.id=" + so + ";\n" +
+    "SELECT '##S|items';\nSELECT COUNT(*) FROM shipping_orders_items WHERE shipping_orders_id=" + so + ";\n" +
+    "SELECT '##S|codes';\nSELECT COUNT(*) FROM certificates_codes WHERE shipping_order_id=" + so + ";\n" +
+    "SELECT '##S|shipped';\nSELECT COUNT(*) FROM certificates_codes WHERE shipping_order_id=" + so + " AND status=3;\n" +
+    "SELECT '##S|solevel';\nSELECT COUNT(*) FROM certificates_codes WHERE shipping_order_id=" + so + " AND production_order_id IS NULL;\n" +
+    "SELECT '##S|user1';\nSELECT COUNT(*), MAX(username) FROM users WHERE id=" + u + ";\n" +
+    "SELECT '##S|user2';\nSELECT COUNT(*), MAX(login) FROM users WHERE id=" + u + ";\n" +
+    "SELECT '##S|end';\n";
+  var q = query(sql, true);
+  if (!q.ok) return q;
+  var s = q.sec;
+  if (!s.end) return { ok: false, error: "Could not read the order. " + (q.errors.length ? q.errors[0].text : "") };
+  if (!s.so || !s.so.length) return { ok: true, found: false, soId: so };
+  var statusId = Number(s.so[0][1]);
+  var userName = null;                       // null = could not check, "" = not found
+  var ur = (s.user1 && s.user1.length) ? s.user1[0] : ((s.user2 && s.user2.length) ? s.user2[0] : null);
+  if (ur) userName = Number(ur[0]) > 0 ? (ur[1] || "(no name)") : "";
+  function num(name) { var v = one(s, name, 0); return v === undefined || v === null ? null : Number(v); }
+  return {
+    ok: true, found: true, soId: so, userId: u, statusId: statusId,
+    statusText: one(s, "stxt", 0) || "", cancellable: inList(statusId, CANCELLABLE),
+    providerId: s.so[0][2], userName: userName,
+    items: num("items"), codes: num("codes"), shipped: num("shipped"), soLevel: num("solevel")
+  };
+}
+
+function doCancel(soId, userId) {
+  var so = Number(soId), u = Number(userId);
+  var sql = "SELECT '##S|call';\nCALL `" + DB_NAME + "`.`" + MAIN_PROC + "`(" + so + ", " + u + ");\n" +
+            "SELECT '##S|after';\nSELECT status FROM shipping_orders WHERE id=" + so + ";\n";
+  var q = query(sql, false);
+  var res = { soId: so, userId: u, statusAfter: null, statusMessage: "", errorMessage: "", raw: "" };
+  if (!q.ok) {
+    res.errorMessage = q.error; res.success = false;
+    // read back the status so the log shows the real state
+    var chk = query("SELECT '##S|after';\nSELECT status FROM shipping_orders WHERE id=" + so + ";\n", true);
+    if (chk.ok) { var st = one(chk.sec, "after", 0); res.statusAfter = st == null ? null : Number(st); }
+  } else {
+    var callRows = q.sec.call || [];
+    for (var i = 0; i < callRows.length; i++) { if (callRows[i][0] && /^\s*\{/.test(callRows[i][0])) { res.raw = callRows[i][0]; break; } }
+    var parsed = {};
+    try { if (res.raw) parsed = JSON.parse(res.raw); } catch (e) { parsed = {}; }
+    res.statusMessage = trim(parsed.status);
+    res.errorMessage = trim(parsed.errorMessage);
+    var after = one(q.sec, "after", 0);
+    res.statusAfter = after == null ? null : Number(after);
+    res.success = res.statusAfter === 4 && !res.errorMessage;
+  }
+  res.logged = Host.appendLog(res);
+  return res;
+}
+
+/* ---------------------------------------------------------------- UI */
+function show(panel) {
+  var all = ["pConnect", "pOrder", "pReview", "pResult"];
+  for (var i = 0; i < all.length; i++) $(all[i]).className = all[i] === panel ? "card" : "card hidden";
+  var idx = { pConnect: 1, pOrder: 2, pReview: 3, pResult: 3 }[panel];
+  for (var s = 1; s <= 3; s++) {
+    var c = (s < idx || panel === "pResult") ? "done" : (s === idx ? "active" : "");
+    $("st" + s).className = c + (s === 3 ? " last" : "");
+  }
+}
+function msg(id, text, kind) { var el = $(id); el.innerText = text || ""; el.className = "msg" + (text ? " show " + kind : ""); }
+function withBusy(text, fn) {
+  $("busyText").innerText = text; $("busy").style.display = "block";
+  setTimeout(function () { try { fn(); } finally { $("busy").style.display = "none"; } }, 60);
+}
+function kvRows(pairs) {
+  var h = "";
+  for (var i = 0; i < pairs.length; i++) h += '<tr><td class="k">' + esc(pairs[i][0]) + "</td><td>" + pairs[i][1] + "</td></tr>";
+  return h;
+}
+function setTable(id, html) {   // IE cannot set innerHTML on <table>; rebuild via a wrapper
+  var old = $(id), wrap = document.createElement("div");
+  wrap.innerHTML = '<table class="kv" id="' + id + '">' + html + "</table>";
+  old.parentNode.replaceChild(wrap.firstChild, old);
+}
+
+function refreshMysqlHint() {
+  var p = trim($("mysqlPath").value), h = $("mysqlHint");
+  if (!p) { h.className = "hint bad"; h.innerText = "mysql.exe not found. Enter its full path, e.g. C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysql.exe"; }
+  else { h.className = "hint"; h.innerText = "Usually in the MySQL Server \"bin\" folder on the SM300 server."; }
+}
+function autoFind() {
+  var list = Host.findMysql();
+  if (list.length) $("mysqlPath").value = list[0];
+  refreshMysqlHint();
+  if (list.length > 1) { $("mysqlHint").className = "hint ok"; $("mysqlHint").innerText = "Found " + list.length + " MySQL clients. Using the first one; edit the path to use another."; }
+}
+
+function onConnect() {
+  var host = trim($("host").value), port = trim($("port").value), path = trim($("mysqlPath").value).replace(/^"|"$/g, "");
+  if (!host || !validHost(host)) { msg("mConnect", "Enter a valid hostname or IP address.", "bad"); return; }
+  if (!/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535) { msg("mConnect", "Port must be a number (default 3306).", "bad"); return; }
+  if (!$("pwd").value) { msg("mConnect", "Enter the root password.", "bad"); return; }
+  if (cnfQuote($("pwd").value) === null) { msg("mConnect", "This password contains both ' and \" characters, which the MySQL client cannot read from a settings file.", "bad"); return; }
+  if (!path) { msg("mConnect", "Enter the path to mysql.exe.", "bad"); return; }
+  conn.host = host; conn.port = Number(port); conn.password = $("pwd").value; conn.mysqlPath = path;
+  msg("mConnect", "");
+  withBusy("Connecting to MySQL...", function () {
+    var r = doConnect();
+    if (!r.ok) { msg("mConnect", r.error, "bad"); return; }
+    Host.saveSettings({ host: host, port: port, mysqlPath: path });
+    if (r.missing.length) {
+      msg("mConnect", "Connected, but these procedures are missing in the " + DB_NAME + " database:\n" + r.missing.join(", ") + "\nInstall them before using this utility.", "warn");
+      return;
+    }
+    $("cHost").innerText = host + ":" + port;
+    $("cVer").innerText = "(MySQL " + (r.version || "?") + ")";
+    msg("mOrder", "");
+    show("pOrder");
+    $("soId").focus();
+  });
+}
+
+function onCheck() {
+  var soId = trim($("soId").value), userId = trim($("userId").value);
+  if (!isPosInt(soId)) { msg("mOrder", "Shipping Order ID must be a whole number.", "bad"); return; }
+  if (!isPosInt(userId)) { msg("mOrder", "User ID must be a whole number.", "bad"); return; }
+  msg("mOrder", "");
+  withBusy("Checking the order...", function () {
+    var r = doPreview(soId, userId);
+    if (!r.ok) { msg("mOrder", r.error, "bad"); return; }
+    if (!r.found) { msg("mOrder", "Shipping Order " + soId + " was not found in the " + DB_NAME + " database.", "bad"); return; }
+    current = r;
+    renderReview(r);
+    show("pReview");
+    if (r.cancellable) $("confirmSo").focus();
+  });
+}
+
+function renderReview(r) {
+  function n(v) { return v === null || v === undefined ? "-" : String(v); }
+  var status = esc(r.statusText) + " (status " + esc(r.statusId) + ") " +
+    (r.cancellable ? '<span class="pill ok">Can be cancelled</span>' : '<span class="pill bad">Cannot be cancelled</span>');
+  var user = esc(r.userId);
+  if (r.userName) user += " &middot; " + esc(r.userName);
+  else if (r.userName === "") user += ' <span class="pill bad">User not found</span>';
+  setTable("tReview", kvRows([
+    ["Shipping Order ID", "<b>" + esc(r.soId) + "</b>"],
+    ["Current status", status],
+    ["Provider ID", esc(n(r.providerId))],
+    ["Order line items", esc(n(r.items))],
+    ["Codes linked to this SO", esc(n(r.codes))],
+    ["Codes in shipped status", esc(n(r.shipped))],
+    ["Codes commissioned at SO level", esc(n(r.soLevel)) + (r.soLevel ? " (will be decommissioned)" : "")],
+    ["Cancelled by User ID", user]
+  ]));
+  $("confirmSo").value = "";
+  $("bCancel").disabled = true;
+  if (!r.cancellable) {
+    msg("mReview", "The procedure only cancels orders in status 3 or 14. This order is in status " + r.statusId + ", so it will be refused.", "warn");
+    $("confirmBox").className = "confirm hidden";
+  } else {
+    $("confirmBox").className = "confirm";
+    if (r.userName === "") msg("mReview", "User ID " + r.userId + " was not found in the users table. The procedure's access check will likely refuse it.", "warn");
+    else msg("mReview", "");
+  }
+}
+
+function onConfirmInput() {
+  $("bCancel").disabled = !(current && current.cancellable && trim($("confirmSo").value) === String(current.soId));
+}
+
+function onCancel() {
+  if ($("bCancel").disabled) return;
+  withBusy("Cancelling Shipping Order " + current.soId + "...", function () {
+    var r = doCancel(current.soId, current.userId);
+    var t = $("rTitle");
+    t.innerText = r.success ? "Shipping Order " + r.soId + " cancelled" : "Shipping Order " + r.soId + " was NOT cancelled";
+    t.style.color = r.success ? "#1d7a46" : "#b3261e";
+    var pairs = [["Shipping Order ID", esc(r.soId)], ["User ID", esc(r.userId)],
+                 ["SO status now", esc(r.statusAfter == null ? "-" : r.statusAfter) + (r.statusAfter === 4 ? " (Cancelled)" : "")]];
+    if (r.statusMessage) pairs.push(["Message", esc(r.statusMessage)]);
+    if (r.errorMessage) pairs.push(["Error", '<span style="color:#b3261e">' + esc(r.errorMessage) + "</span>"]);
+    if (!r.logged) pairs.push(["Log", '<span style="color:#8a5200">Could not write ' + LOG_NAME + " (folder may be read-only).</span>"]);
+    setTable("tResult", kvRows(pairs));
+    $("rRaw").innerText = r.raw ? "Procedure output: " + r.raw : "";
+    show("pResult");
+  });
+}
+
+function onKey(e, fn) { e = e || window.event; if (e.keyCode === 13) fn(); }
+
+window.onload = function () {
+  try { window.resizeTo(760, 860); window.moveTo(Math.max(0, (screen.availWidth - 760) / 2), Math.max(0, (screen.availHeight - 860) / 2)); } catch (e) {}
+  if (!Host.available()) {
+    msg("mConnect", "This utility must be opened as an .hta file on Windows (double-click it). It cannot run inside a normal web browser.", "bad");
+    $("bConnect").disabled = true; $("bFind").disabled = true;
+    return;
+  }
+  var s = Host.loadSettings();
+  if (s.host) $("host").value = s.host;
+  if (s.port) $("port").value = s.port;
+  if (s.mysqlPath) { $("mysqlPath").value = s.mysqlPath; refreshMysqlHint(); } else autoFind();
+  $("bFind").onclick = autoFind;
+  $("bConnect").onclick = onConnect;
+  $("bCheck").onclick = onCheck;
+  $("bCancel").onclick = onCancel;
+  $("bBack").onclick = function () { show("pOrder"); };
+  $("bChange").onclick = function () { msg("mConnect", ""); show("pConnect"); };
+  $("bAnother").onclick = function () { $("soId").value = ""; msg("mOrder", ""); show("pOrder"); $("soId").focus(); };
+  $("bNewConn").onclick = function () { $("pwd").value = ""; conn.password = ""; msg("mConnect", ""); show("pConnect"); };
+  $("confirmSo").onkeyup = onConfirmInput;
+  $("confirmSo").onpropertychange = onConfirmInput;
+  $("confirmSo").oninput = onConfirmInput;
+  $("pwd").onkeydown = function (e) { onKey(e, onConnect); };
+  $("userId").onkeydown = function (e) { onKey(e, onCheck); };
+  $("soId").onkeydown = function (e) { onKey(e, onCheck); };
+  $("mysqlPath").onkeyup = refreshMysqlHint;
+  (s.host ? $("pwd") : $("host")).focus();
+};
+</script>
+</body>
+</html>
